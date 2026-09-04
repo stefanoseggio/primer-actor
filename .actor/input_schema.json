@@ -1,25 +1,44 @@
 {
     "$schema": "https://apify.com/schemas/v1/input.ide.json",
-    "title": "CheerioCrawler Template",
+    "title": "Metadata Crawler Configuration",
     "type": "object",
     "schemaVersion": 1,
     "properties": {
         "startUrls": {
             "title": "Start URLs",
             "type": "array",
-            "description": "URLs to start with.",
+            "description": "URLs to start crawling from.",
             "editor": "requestListSources",
             "prefill": [
-                {
-                    "url": "https://apify.com"
-                }
+                { "url": "https://apify.com" }
             ]
         },
         "maxRequestsPerCrawl": {
-            "title": "Max Requests per Crawl",
+            "title": "Max requests per crawl",
             "type": "integer",
-            "description": "Maximum number of requests that can be made by this crawler.",
-            "default": 100
+            "description": "Hard limit on how many pages this run will fetch, across start URLs, discovered same-site links and pagination.",
+            "default": 100,
+            "minimum": 1
+        },
+        "paginationSelector": {
+            "title": "Pagination next-page selector",
+            "type": "string",
+            "description": "Optional CSS selector for a next-page link, e.g. a[rel=next] or .pagination .next. When set, the crawler follows it up to Max pagination depth pages per start URL, on top of normal same-site link discovery.",
+            "editor": "textfield"
+        },
+        "maxPaginationDepth": {
+            "title": "Max pagination depth",
+            "type": "integer",
+            "description": "Maximum number of paginated pages to follow per start URL when Pagination selector is set. Ignored otherwise.",
+            "default": 3,
+            "minimum": 0
+        },
+        "proxyConfiguration": {
+            "title": "Proxy configuration",
+            "type": "object",
+            "description": "Proxies used to fetch pages. Apify Proxy (datacenter) is recommended as the default.",
+            "prefill": { "useApifyProxy": true },
+            "editor": "proxy"
         }
     }
 }
