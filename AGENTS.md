@@ -756,3 +756,68 @@ one) follows the same process instead of re-deriving it.
 - The local git identity for this repo (`git config user.email`) is still
   the placeholder `tu_email@ejemplo.com` - fix with `git config user.email
   "<real address>"` before it ends up in a commit that matters.
+
+## Publishing on Apify Store (this repo, project-specific)
+
+Console-only steps. None of this lives in `.actor/actor.json` - checked
+against the current actor.json schema (2026-09-04): valid top-level fields
+are `actorSpecification`, `name`, `version`, `title`, `description`,
+`buildTag`, `meta`, `environmentVariables`, `dockerfile`,
+`dockerContextDir`, `readme`, `input`, `output`, `changelog`, `storages`,
+`defaultMemoryMbytes`, `minMemoryMbytes`, `maxMemoryMbytes`,
+`usesStandbyMode`, `webServerSchema`, `webServerMcpPath`. There is no
+`seoTitle`, `seoDescription` or `categories` field - those are separate,
+Console-only fields under Publication > Display information, edited there
+directly and not synced from this file. `dataset_schema.json` in this repo
+already enforces `additionalProperties` strictly (see the "Fix dataset
+schema additionalProperties error" commit in this repo's history) -
+assume actor.json's schema is equally strict and do not guess at adding
+unlisted fields to it.
+
+### 1. Display information (Console > this Actor > Publication > Display information)
+
+| Field | Value |
+|---|---|
+| Actor name | Metadata Crawler with Pagination |
+| Description (Store, <=300 chars) | Extract clean, structured metadata from any website: title, meta description, canonical URL, Open Graph tags, H1 and word count per page. Follows same-site links and optional pagination automatically, with built-in retries for reliable large-site crawls. |
+| SEO name | Website Metadata & SEO Data Scraper |
+| SEO description (Google, ~145-155 chars) | Scrape title, meta description, canonical URL, Open Graph tags and word count from any site. Built for SEO audits and clean LLM/RAG data feeds. |
+| Categories | SEO_TOOLS (primary), DEVELOPER_TOOLS (secondary) |
+
+Also upload an Actor logo/icon in this same section - required before the
+Publish button activates.
+
+### 2. Monetization (Console > this Actor > Publication > Monetization)
+
+Pay-per-event, one custom event:
+
+| Field | Value |
+|---|---|
+| Event name | `result` (must match `RESULT_EVENT_NAME` in `src/routes.ts` exactly) |
+| Event title | Extracted result |
+| Price | $0.0005 per event = $0.50 per 1,000 results |
+
+Important, confirmed from Apify's own docs - do not assume this is instant:
+
+- Adding a new paid event has a **14-day notice period** before it takes
+  effect, and an Actor can only have one "significant change" (new paid
+  event or a price increase) processed per month.
+- Until the event is actually active, `Actor.charge()` in the deployed code
+  is already safe: it logs one warning ("Ignored attempt to charge for an
+  event - the Actor does not use the pay-per-event pricing") and returns
+  `eventChargeLimitReached: false`, so the Actor keeps working exactly as
+  it does today - runs are simply not billed yet.
+- Apify also has a reserved synthetic event, `apify-default-dataset-item`,
+  that charges automatically per dataset item with zero code - the code
+  path in `routes.ts` uses an explicit named event instead because that
+  was the deliberate choice here (room to price a second event
+  differently later); note it as the simpler alternative if that
+  flexibility is never used.
+
+### 3. Publish
+
+Once Display information and Monetization both show complete (green) in
+the Publication tab, and Sample Output / Output Schema / Actor Permissions
+are filled in, the **Publish on Store** button activates. Publishing is a
+one-way, visible action - do not click it without the user's explicit
+go-ahead in that specific conversation, same as push/build/promote above.
