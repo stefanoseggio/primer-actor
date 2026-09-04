@@ -1,23 +1,22 @@
 {
-    "$schema": "https://apify.com/schemas/v1/dataset.ide.json",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
     "actorSpecification": 1,
     "title": "Dataset Schema",
-    "type": "object",
     "fields": {
         "title": {
             "title": "Title",
             "type": "string",
-            "description": "El título extraído de la página"
+            "description": "Page title"
         },
         "url": {
             "title": "URL",
             "type": "string",
-            "description": "La URL origen de la extracción"
+            "description": "Page URL"
         },
         "scrapedAt": {
             "title": "Scraped At",
             "type": "string",
-            "description": "Timestamp en formato ISO 8601"
+            "description": "Timestamp of scraping"
         }
     },
     "views": {
@@ -32,17 +31,23 @@
             },
             "display": {
                 "component": "table",
-                "properties": {
-                    "title": {
-                        "label": "Title"
+                "columns": [
+                    {
+                        "label": "Title",
+                        "format": "text",
+                        "field": "title"
                     },
-                    "url": {
-                        "label": "URL"
+                    {
+                        "label": "URL",
+                        "format": "link",
+                        "field": "url"
                     },
-                    "scrapedAt": {
-                        "label": "Date"
+                    {
+                        "label": "Scraped At",
+                        "format": "date",
+                        "field": "scrapedAt"
                     }
-                }
+                ]
             }
         }
     }
