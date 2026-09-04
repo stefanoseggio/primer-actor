@@ -5,51 +5,34 @@
     "fields": {
         "type": "object",
         "properties": {
-            "title": {
-                "title": "Title",
-                "type": "string",
-                "description": "Page title"
-            },
-            "url": {
-                "title": "URL",
-                "type": "string",
-                "description": "Page URL"
-            },
-            "scrapedAt": {
-                "title": "Scraped At",
-                "type": "string",
-                "description": "Timestamp of scraping"
-            }
+            "url": { "title": "URL", "type": "string", "description": "Page URL" },
+            "title": { "title": "Title", "type": "string", "description": "Page title tag" },
+            "metaDescription": { "title": "Meta description", "type": ["string", "null"], "description": "meta name=description content" },
+            "canonicalUrl": { "title": "Canonical URL", "type": ["string", "null"], "description": "link rel=canonical href" },
+            "ogTitle": { "title": "OG title", "type": ["string", "null"], "description": "og:title meta content" },
+            "ogImage": { "title": "OG image", "type": ["string", "null"], "description": "og:image meta content" },
+            "language": { "title": "Language", "type": ["string", "null"], "description": "html lang attribute" },
+            "h1": { "title": "H1", "type": ["string", "null"], "description": "First h1 text" },
+            "wordCount": { "title": "Word count", "type": "integer", "description": "Approximate visible body word count" },
+            "statusCode": { "title": "Status code", "type": ["integer", "null"], "description": "HTTP status code of the response" },
+            "crawlDepth": { "title": "Crawl depth", "type": "integer", "description": "Link-hops from the nearest start URL" },
+            "scrapedAt": { "title": "Scraped at", "type": "string", "description": "ISO timestamp of extraction" }
         }
     },
     "views": {
         "overview": {
             "title": "Overview",
             "transformation": {
-                "fields": [
-                    "title",
-                    "url",
-                    "scrapedAt"
-                ]
+                "fields": ["title", "url", "statusCode", "wordCount", "scrapedAt"]
             },
             "display": {
                 "component": "table",
                 "columns": [
-                    {
-                        "label": "Title",
-                        "format": "text",
-                        "field": "title"
-                    },
-                    {
-                        "label": "URL",
-                        "format": "link",
-                        "field": "url"
-                    },
-                    {
-                        "label": "Scraped At",
-                        "format": "date",
-                        "field": "scrapedAt"
-                    }
+                    { "label": "Title", "format": "text", "field": "title" },
+                    { "label": "URL", "format": "link", "field": "url" },
+                    { "label": "Status", "format": "text", "field": "statusCode" },
+                    { "label": "Words", "format": "number", "field": "wordCount" },
+                    { "label": "Scraped At", "format": "date", "field": "scrapedAt" }
                 ]
             }
         }
