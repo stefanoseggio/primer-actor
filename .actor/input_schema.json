@@ -7,11 +7,12 @@
         "startUrls": {
             "title": "Start URLs",
             "type": "array",
-            "description": "URLs to start crawling from.",
+            "description": "URLs to start crawling from. At least one is required - the Actor charges an actor-start event just for running, so an empty list would bill the caller for zero output.",
             "editor": "requestListSources",
             "prefill": [
                 { "url": "https://apify.com" }
-            ]
+            ],
+            "minItems": 1
         },
         "maxRequestsPerCrawl": {
             "title": "Max requests per crawl",

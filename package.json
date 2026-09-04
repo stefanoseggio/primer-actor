@@ -2,7 +2,7 @@
   "name": "primer-actor",
   "version": "1.0.0",
   "type": "module",
-  "description": "Apify Actor optimizado para extracción B2B y monetización.",
+  "description": "CleanMeta Crawler: production-grade CheerioCrawler that extracts clean page metadata (title, meta description, canonical, Open Graph, H1, word count) with pagination and pay-per-event billing.",
   "engines": {
     "node": ">=20.0.0"
   },
