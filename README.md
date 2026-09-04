@@ -1,113 +1,170 @@
-# TypeScript Crawlee & CheerioCrawler Actor Template
+# Metadata Crawler with Pagination
 
-<!-- This is an Apify template readme -->
+Production-grade [Crawlee](https://crawlee.dev/) + [Cheerio](https://cheerio.js.org/) Actor that turns a list of start URLs into structured page metadata: title, meta description, canonical URL, Open Graph tags, language, H1, word count and HTTP status - with resilient retries, same-site link discovery and optional pagination.
 
-This template example was built with [Crawlee](https://crawlee.dev/) to scrape data from a website using [Cheerio](https://cheerio.js.org/) wrapped into [CheerioCrawler](https://crawlee.dev/api/cheerio-crawler/class/CheerioCrawler).
+Actor: `stefano_seggio/primer-actor`
 
-## Quick Start
+## Use cases
 
-Once you've installed the dependencies, start the Actor:
+- **SEO / content audits.** Bulk-check title, meta description, canonical URL and Open Graph tags across a site to find missing or duplicated metadata before a migration or a launch.
+- **Content inventory.** Word-count and H1 per page across a whole site or section, useful for finding thin-content pages.
+- **Clean input for LLM/RAG pipelines.** Feed an LLM structured `{title, description, h1}` per URL instead of raw HTML - fewer tokens, less noise, no HTML parsing on your side.
+- **Social preview monitoring.** Track `og:title` / `og:image` across your own or a competitor's pages to catch broken or stale share cards.
+- **Site health checks.** `statusCode` per crawled URL surfaces broken internal links as a side effect of any of the above.
+
+## Input
+
+| Field | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `startUrls` | array | yes | `[{"url": "https://apify.com"}]` | URLs to start crawling from. |
+| `maxRequestsPerCrawl` | integer | no | `100` | Hard cap on pages fetched this run, across start URLs, same-site link discovery and pagination. |
+| `paginationSelector` | string | no | - | CSS selector for a "next page" link, e.g. `a[rel=next]` or `.pagination .next`. When set, the crawler follows it up to `maxPaginationDepth` pages per start URL, on top of normal same-site link discovery. |
+| `maxPaginationDepth` | integer | no | `3` | Max paginated pages to follow per start URL. Ignored when `paginationSelector` is not set. |
+| `proxyConfiguration` | object | no | Apify Proxy (datacenter) | Standard Apify proxy configuration object. |
+
+Minimal example:
+
+```json
+{
+    "startUrls": [{ "url": "https://crawlee.dev" }],
+    "maxRequestsPerCrawl": 20
+}
+```
+
+With pagination:
+
+```json
+{
+    "startUrls": [{ "url": "https://example-blog.com/archive" }],
+    "maxRequestsPerCrawl": 200,
+    "paginationSelector": "a[rel=next]",
+    "maxPaginationDepth": 10
+}
+```
+
+## Output
+
+One dataset item per crawled page:
+
+| Field | Type | Description |
+|---|---|---|
+| `url` | string | The page's final (loaded) URL. |
+| `title` | string | Page `<title>`. |
+| `metaDescription` | string or null | `meta[name=description]` content. |
+| `canonicalUrl` | string or null | `link[rel=canonical]` href. |
+| `ogTitle` | string or null | `og:title` meta content. |
+| `ogImage` | string or null | `og:image` meta content. |
+| `language` | string or null | `html[lang]` attribute. |
+| `h1` | string or null | Text of the first `<h1>`, if any. |
+| `wordCount` | integer | Approximate visible body word count. |
+| `statusCode` | integer or null | HTTP status code of the response. |
+| `crawlDepth` | integer | Link-hops from the nearest start URL (0 for a start URL itself). |
+| `scrapedAt` | string | ISO timestamp of extraction. |
+
+A request that permanently fails after retries is recorded instead of silently dropped, as a dataset item with `url`, `error` and `failedAtRetry` fields, so failures are auditable from the same dataset rather than only visible in run logs.
+
+## Run it
+
+### Apify Console
+
+Open the Actor page, fill in the input form, click Start.
+
+### cURL
 
 ```bash
-apify run
+curl -X POST "https://api.apify.com/v2/actors/stefano_seggio~primer-actor/run-sync-get-dataset-items?token=$APIFY_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{
+        "startUrls": [{ "url": "https://crawlee.dev" }],
+        "maxRequestsPerCrawl": 10
+    }'
 ```
 
-Once your Actor is ready, you can push it to the Apify Console:
+Returns the dataset items as a JSON array once the run finishes.
+
+### Python (apify-client)
+
+```python
+from apify_client import ApifyClient
+
+client = ApifyClient("<APIFY_TOKEN>")
+
+run = client.actor("stefano_seggio/primer-actor").call(run_input={
+    "startUrls": [{"url": "https://crawlee.dev"}],
+    "maxRequestsPerCrawl": 10,
+})
+
+for item in client.dataset(run["defaultDatasetId"]).iterate_items():
+    print(item["url"], item["title"], item["wordCount"])
+```
+
+### JavaScript (apify-client)
+
+```javascript
+import { ApifyClient } from 'apify-client';
+
+const client = new ApifyClient({ token: '<APIFY_TOKEN>' });
+
+const run = await client.actor('stefano_seggio/primer-actor').call({
+    startUrls: [{ url: 'https://crawlee.dev' }],
+    maxRequestsPerCrawl: 10,
+});
+
+const { items } = await client.dataset(run.defaultDatasetId).listItems();
+console.log(items);
+```
+
+## Using it from an LLM agent (MCP)
+
+This Actor is callable by any MCP-compatible agent (Claude Code, Claude Desktop, etc.) through Apify's MCP server, without writing any glue code.
+
+Add the server (Claude Code CLI):
 
 ```bash
-apify login # first, you need to log in if you haven't already done so
-
-apify push
+claude mcp add apify -- npx -y @apify/actors-mcp-server --tools stefano_seggio/primer-actor
 ```
 
-## Project Structure
+Or manually:
 
-```text
-.actor/
-├── actor.json # Actor config: name, version, env vars, runtime settings
-├── dataset_schema.json # Structure and representation of data produced by an Actor
-├── input_schema.json # Input validation & Console form definition
-└── output_schema.json # Specifies where an Actor stores its output
-src/
-└── main.ts # Actor entry point and orchestrator
-storage/ # Local storage (mirrors Cloud during development)
-├── datasets/ # Output items (JSON objects)
-├── key_value_stores/ # Files, config, INPUT
-└── request_queues/ # Pending crawl requests
-Dockerfile # Container image definition
+```json
+{
+    "mcpServers": {
+        "apify": {
+            "command": "npx",
+            "args": ["-y", "@apify/actors-mcp-server", "--tools", "stefano_seggio/primer-actor"]
+        }
+    }
+}
 ```
 
-For more information, see the [Actor definition](https://docs.apify.com/platform/actors/development/actor-definition) documentation.
+Once connected, the agent sees this Actor as a callable tool with the input schema above and gets the dataset items back as the tool result - useful for letting an agent pull structured page metadata mid-conversation instead of fetching and parsing raw HTML itself.
 
 ## How it works
 
-This code is a TypeScript script that uses Cheerio to scrape data from a website. It then stores the website titles in a dataset.
+```text
+.actor/
+├── actor.json          # Actor metadata: name, version, memory limits
+├── input_schema.json   # Input validation and the Console form
+├── dataset_schema.json # Output shape and the dataset Overview table
+└── output_schema.json  # Where the Actor's results live
+src/
+├── main.ts             # Reads input, configures CheerioCrawler, seeds requests
+├── routes.ts            # Request handler: calls the parsers, enqueues links/pagination
+├── types.ts             # Shared Input/PageMetadata types
+└── parsers/
+    ├── metadata.ts      # Pure function: HTML -> PageMetadata (unit-tested, framework-agnostic)
+    └── pagination.ts    # Pure function: resolves a "next page" href
+test/
+├── main.test.ts         # Integration smoke test through the real router
+└── parsers/             # Offline unit tests against static HTML fixtures
+```
 
-- The crawler starts with URLs provided from the input `startUrls` field defined by the input schema. Number of scraped pages is limited by `maxPagesPerCrawl` field from the input schema.
-- The crawler uses `requestHandler` for each URL to extract the data from the page with the Cheerio library and to save the title and URL of each page to the dataset. It also logs out each result that is being saved.
-
-## What's included
-
-- **[Apify SDK](https://docs.apify.com/sdk/js)** - toolkit for building [Actors](https://apify.com/actors)
-- **[Crawlee](https://crawlee.dev/)** - web scraping and browser automation library
-- **[Input schema](https://docs.apify.com/platform/actors/development/input-schema)** - define and easily validate a schema for your Actor's input
-- **[Dataset](https://docs.apify.com/sdk/python/docs/concepts/storages#working-with-datasets)** - store structured data where each object stored has the same attributes
-- **[Cheerio](https://cheerio.js.org/)** - a fast, flexible & elegant library for parsing and manipulating HTML and XML
-- **[Proxy configuration](https://docs.apify.com/platform/proxy)** - rotate IP addresses to prevent blocking
+For each URL: fetch with retries (`maxRequestRetries: 4`, session rotation on suspected blocks), extract metadata via `parsers/metadata.ts`, optionally follow a configured pagination link, then enqueue same-hostname links up to `maxRequestsPerCrawl`. `parsers/metadata.ts` takes a Cheerio API instance and returns a plain object with no Crawlee/Actor dependency, so the same extraction logic is reusable from a future browser-based (Playwright) router without duplicating parsing code.
 
 ## Resources
 
-- [Quick Start](https://docs.apify.com/platform/actors/development/quick-start) guide for building your first Actor
-- [Video tutorial](https://www.youtube.com/watch?v=yTRHomGg9uQ) on building a scraper using CheerioCrawler
-- [Written tutorial](https://docs.apify.com/academy/web-scraping-for-beginners/challenge) on building a scraper using CheerioCrawler
-- [Web scraping with Cheerio in 2023](https://blog.apify.com/web-scraping-with-cheerio/)
-- How to [scrape a dynamic page](https://blog.apify.com/what-is-a-dynamic-page/) using Cheerio
-- [Integration with Zapier](https://apify.com/integrations), Make, Google Drive and others
-- [Video guide on getting data using Apify API](https://www.youtube.com/watch?v=ViYYDHSBAKM)
-
-## Creating Actors with templates
-
-[How to create Apify Actors with web scraping code templates](https://www.youtube.com/watch?v=u-i-Korzf8w)
-
-
-## Getting started
-
-For complete information [see this article](https://docs.apify.com/platform/actors/development#build-actor-locally). To run the Actor use the following command:
-
-```bash
-apify run
-```
-
-## Deploy to Apify
-
-### Connect Git repository to Apify
-
-If you've created a Git repository for the project, you can easily connect to Apify:
-
-1. Go to [Actor creation page](https://console.apify.com/actors/new)
-2. Click on **Link Git Repository** button
-
-### Push project on your local machine to Apify
-
-You can also deploy the project on your local machine to Apify without the need for the Git repository.
-
-1. Log in to Apify. You will need to provide your [Apify API Token](https://console.apify.com/account/integrations) to complete this action.
-
-    ```bash
-    apify login
-    ```
-
-2. Deploy your Actor. This command will deploy and build the Actor on the Apify Platform. You can find your newly created Actor under [Actors -> My Actors](https://console.apify.com/actors?tab=my).
-
-    ```bash
-    apify push
-    ```
-
-## Documentation reference
-
-To learn more about Apify and Actors, take a look at the following resources:
-
-- [Apify SDK for JavaScript documentation](https://docs.apify.com/sdk/js)
-- [Apify SDK for Python documentation](https://docs.apify.com/sdk/python)
-- [Apify Platform documentation](https://docs.apify.com/platform)
-- [Join our developer community on Discord](https://discord.com/invite/jyEM2PRvMU)
+- [Crawlee documentation](https://crawlee.dev)
+- [Apify SDK for JavaScript](https://docs.apify.com/sdk/js)
+- [Apify Actor input schema](https://docs.apify.com/platform/actors/development/input-schema)
+- [Apify API reference](https://docs.apify.com/api/v2)
+- [Apify MCP server](https://docs.apify.com/platform/integrations/mcp)
