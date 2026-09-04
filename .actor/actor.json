@@ -1,0 +1,21 @@
+{
+    "$schema": "https://apify.com/schemas/v1/actor.ide.json",
+    "actorSpecification": 1,
+    "name": "primer-actor",
+    "title": "Project Cheerio Crawler Typescript",
+    "description": "Crawlee and Cheerio project in typescript.",
+    "version": "1.0",
+    "buildTag": "latest",
+    "minMemoryMbytes": 256,
+    "maxMemoryMbytes": 1024,
+    "meta": {
+        "templateId": "ts-crawlee-cheerio",
+        "generatedBy": "Claude"
+    },
+    "inputSchema": "./input_schema.json",
+    "outputSchema": "./output_schema.json",
+    "storages": {
+        "dataset": "./dataset_schema.json"
+    },
+    "dockerfile": "../Dockerfile"
+}

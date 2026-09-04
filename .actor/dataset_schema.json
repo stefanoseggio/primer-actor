@@ -1,0 +1,49 @@
+{
+    "$schema": "https://apify.com/schemas/v1/dataset.ide.json",
+    "actorSpecification": 1,
+    "title": "Dataset Schema",
+    "type": "object",
+    "fields": {
+        "title": {
+            "title": "Title",
+            "type": "string",
+            "description": "El título extraído de la página"
+        },
+        "url": {
+            "title": "URL",
+            "type": "string",
+            "description": "La URL origen de la extracción"
+        },
+        "scrapedAt": {
+            "title": "Scraped At",
+            "type": "string",
+            "description": "Timestamp en formato ISO 8601"
+        }
+    },
+    "views": {
+        "overview": {
+            "title": "Overview",
+            "transformation": {
+                "fields": [
+                    "title",
+                    "url",
+                    "scrapedAt"
+                ]
+            },
+            "display": {
+                "component": "table",
+                "properties": {
+                    "title": {
+                        "label": "Title"
+                    },
+                    "url": {
+                        "label": "URL"
+                    },
+                    "scrapedAt": {
+                        "label": "Date"
+                    }
+                }
+            }
+        }
+    }
+}
