@@ -776,16 +776,31 @@ unlisted fields to it.
 
 ### 1. Display information (Console > this Actor > Publication > Display information)
 
+Live values as of publication (2026-09-04), set via the API method in
+section 4, not by hand in Console:
+
 | Field | Value |
 |---|---|
-| Actor name | Metadata Crawler with Pagination |
-| Description (Store, <=300 chars) | Extract clean, structured metadata from any website: title, meta description, canonical URL, Open Graph tags, H1 and word count per page. Follows same-site links and optional pagination automatically, with built-in retries for reliable large-site crawls. |
+| Actor name | CleanMeta Crawler |
+| Description (Store, <=300 chars) | Clean, structured page metadata in seconds: title, description, canonical, Open Graph, H1, word count. Built-in retries and pagination. Ready for SEO audits and LLM/RAG pipelines - pay only per result, never per wasted run. |
 | SEO name | Website Metadata & SEO Data Scraper |
 | SEO description (Google, ~145-155 chars) | Scrape title, meta description, canonical URL, Open Graph tags and word count from any site. Built for SEO audits and clean LLM/RAG data feeds. |
-| Categories | SEO_TOOLS (primary), DEVELOPER_TOOLS (secondary) |
+| Categories | `[]` - see correction below, do not set by hand |
 
-Also upload an Actor logo/icon in this same section - required before the
-Publish button activates.
+**Correction to an earlier version of this doc:** categories are
+**auto-assigned by Apify after publish**, confirmed directly against the
+Console UI ("Categories are auto-assigned based on your Actor... Your
+categories are assigned after you publish. You can share feedback if a
+category doesn't apply."). There is no pre-publish manual picker anywhere
+in Console, despite `categories` being a real, settable field on the
+`PUT /v2/actors/{actorId}` payload (see section 4) - do not set it there
+either; an earlier draft of this doc recommended `SEO_TOOLS` +
+`DEVELOPER_TOOLS` as if they were user-chosen, which was wrong.
+
+Actor logo/icon: uploaded manually by the user in this same Console
+section - this is a multipart file upload, a different mechanism from
+everything else in this doc, and there was no path found to do it via
+`apify api` or the CLI.
 
 ### 2. Monetization (Console > this Actor > Publication > Monetization)
 
@@ -821,3 +836,82 @@ the Publication tab, and Sample Output / Output Schema / Actor Permissions
 are filled in, the **Publish on Store** button activates. Publishing is a
 one-way, visible action - do not click it without the user's explicit
 go-ahead in that specific conversation, same as push/build/promote above.
+
+**The click itself cannot be done by Claude, ever, even if asked directly
+- this was tested for real, not assumed.** Clicking "Publish on Store"
+surfaces an inline "I agree..." modal representing "you are over 18 years
+old and agree to adhere to these Apify Store Publishing Terms and
+Conditions" - a personal legal representation plus acceptance of a
+binding commercial contract, not a cookie banner. Claude cannot truthfully
+make that representation on the user's behalf, and has no authenticated
+browser session into the user's Console account anyway short of being
+handed login credentials, which is separately and absolutely prohibited.
+When asked to do this directly (it was asked, twice, across two sessions
+worth of this doc's history), the answer is still no: explain why, point
+at the exact Console URL, and wait for the user to confirm they clicked
+it themselves.
+
+Apify's own backend enforces this the same way: `PUT
+/v2/actors/{actorId}` with `isPublic: true` returns `403
+store-terms-not-accepted` until the terms have been accepted through that
+exact Console flow. This is not fixable from the API side under any
+payload shape, and it is a **different** gate from billing/payment setup
+- adding a payment method in Console > Billing does **not** clear it
+(confirmed: the identical 403 fired again immediately after billing was
+completed). Do not retry the API call hoping billing fixed it; there is
+nothing to retry until the user confirms the actual "Publish on Store"
+click + modal.
+
+### 4. What was actually learned doing this for real (2026-09-04)
+
+Actor-level metadata - `title`, `description`, `seoTitle`,
+`seoDescription`, `categories`, `isPublic`, `defaultRunOptions`,
+`exampleRunInput`, `pricingInfos` - lives on the Actor resource itself and
+is **never synced from `.actor/actor.json` or from a build**, no matter
+how many times `apify actors build` runs (verified: `actor.json`'s title
+sat unsynced across 13 builds; `defaultRunOptions.memoryMbytes` sat at the
+template's `4096` the entire time despite `actor.json` specifying
+256-1024 since the very first session-long audit of this repo). The only
+way to change these fields is `PUT /v2/actors/{actorId}`, confirmed to be
+a **partial merge**, not a full-resource replace, by testing it directly:
+snapshot the actor's full state, send a PUT with only the field(s) meant
+to change, GET again, diff every other field. Do this every time - it's
+cheap and it's the only way to be sure a two-field write didn't touch
+pricing or branding.
+
+The CLI does not wrap this endpoint (`apify actors --help` has no
+`update`), but `apify api` does, using the CLI's own already-authenticated
+session - never ask the user for a raw API token to do this, and never go
+looking for one in `~/.apify/auth.json` (it's keyring-backed, not
+plaintext, by design):
+
+```bash
+python3 -c "
+import json
+print(json.dumps({'title': 'CleanMeta Crawler', 'description': '...'}))
+" | apify api PUT actors/stefano_seggio~primer-actor -d -
+```
+
+Piping JSON through `-d -` (stdin) from a small Python script sidesteps
+shell quoting entirely - this is the fix for the exact PowerShell
+`--body` quoting failure that came up when the user tried this
+themselves. Never hand-construct nested-JSON `-d` strings on a
+Windows/PowerShell command line.
+
+`exampleRunInput` is not shaped like the Actor's real input schema. It is
+`{"body": "<the input JSON, as a string>", "contentType": "application/json; charset=utf-8"}`
+- sending `{"startUrls": [...]}` directly as `exampleRunInput` (i.e.
+without the `body`/`contentType` wrapper) fails schema validation with
+`exampleRunInput.startUrls is not allowed by the schema`. This was live
+on the Actor as the ts-crawlee-cheerio template's `{helloWorld: 123}`
+placeholder through the entire build history until fixed the same way as
+everything else in this section.
+
+**Final published state:** live at
+[apify.com/stefano_seggio/primer-actor](https://apify.com/stefano_seggio/primer-actor),
+`isPublic: true`, build `1.0.13` on both `latest` and `beta`,
+`defaultRunOptions.memoryMbytes: 512`, pricing PPE with `result`
+($0.0005, primary event) and `apify-actor-start` ($0.00005), title/
+description/SEO fields as in section 1, `exampleRunInput` matching the
+real input schema. Categories still `[]`, pending Apify's post-publish
+auto-assignment. Icon uploaded by the user directly in Console.
