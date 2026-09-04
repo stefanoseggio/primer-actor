@@ -670,3 +670,89 @@ Or add it manually to your MCP config:
 - [docs.apify.com/llms-full.txt](https://docs.apify.com/llms-full.txt) - Complete docs
 - [crawlee.dev](https://crawlee.dev) - Crawlee documentation
 - [whitepaper.actor](https://raw.githubusercontent.com/apify/actor-whitepaper/refs/heads/master/README.md) - Complete Actor specification
+
+## primer-actor workflow (this repo, project-specific)
+
+This section documents the actual working agreement for developing and
+shipping this Actor, agreed 2026-09-04. It exists so any agent picking up
+this repo later (including a future Claude session with no memory of this
+one) follows the same process instead of re-deriving it.
+
+### Branching
+
+- `main` must always be a build Apify Console can safely rebuild and deploy.
+  It is watched by Apify's Git integration (Console > Actor > Source),
+  so a push to `main` triggers a rebuild there - never push directly.
+- Every non-trivial change (new feature, refactor, dependency bump) goes on
+  a branch: `feature/<slug>` for new capability, `fix/<slug>` for bugs,
+  `experiment/<slug>` for spikes that may be thrown away. Land it via a PR
+  reviewed before merge, even if the "reviewer" is the human owner reading
+  a Claude-authored diff.
+- Use a Git worktree instead of `git checkout` when two lines of work need
+  to be live at once (e.g. hardening the Cheerio path while spiking a
+  Playwright variant): `git worktree add ../primer-actor-<slug> -b
+  feature/<slug>`. This keeps `main`'s working tree untouched and lets both
+  run `apify run` independently without clobbering `storage/`.
+- One Actor = one Git repo in this project. A second Actor gets its own
+  directory/repo (e.g. `~/actors/<other-actor>/`), not a branch of this one
+  - Apify's Git integration and `.actor/actor.json` are both repo-scoped.
+
+### Standard change loop (what Claude does here without re-asking each step)
+
+1. Read the current file state from disk before editing - never trust a
+   summary from earlier in the conversation. This repo's history already
+   has one case (2026-09-04) where `src/main.ts` on `main` silently
+   diverged from what had been validated in an earlier session.
+2. Edit source, `.actor/*.json` schemas, and tests together, not source
+   alone - a schema or test left stale is a bug waiting to surface later.
+3. Validate locally, in this order, before considering a change done:
+   - `npm run build` (tsc - catches type errors)
+   - `npm run lint`
+   - `npm test`
+   - `apify run --purge --input '{...}'` with a deliberately small
+     `maxRequestsPerCrawl` and, at least once, a **non-default** `startUrls`
+     value - a hardcoded fallback URL can make a broken input path look
+     fine if you only ever test with the default.
+4. Inspect `storage/datasets/default/*.json` from that run, not just the
+   log tail - the log says "Finished successfully" even when the pushed
+   item shape is wrong.
+5. Commit locally with a message that states what was actually broken and
+   how it was verified fixed (build/lint/test output, or the specific
+   `apify run` result) - not just "update main.ts".
+
+### What requires explicit go-ahead, every time
+
+- `git push` (any branch) and opening/merging a PR - visible to others,
+  and pushing to `main` triggers a real Apify Console rebuild.
+- `apify push` / `apify actors call` against `stefano_seggio/primer-actor`
+  once local changes exist that haven't been through the loop above - this
+  overwrites the `latest` build real users/integrations may be hitting.
+- Any change to `.actor/actor.json` pricing/monetization fields, or a
+  first call to `Actor.charge(...)` in code, once the Actor has a
+  configured pay-per-event pricing model in Console - this has real
+  billing effect on callers.
+
+### Known footguns in this repo (checked 2026-09-04, may drift - verify)
+
+- `crawlee` (the umbrella package) is the direct dependency, not
+  `@crawlee/cheerio`. This is deliberate: `PlaywrightCrawler` becomes a
+  zero-new-dependency import later. Do not "clean up" back to the scoped
+  package without checking whether a Playwright router has been added.
+- Playwright/Puppeteer browser binaries are NOT installed (they're
+  optional peer deps of `crawlee`, correctly skipped by npm). Adding a
+  Playwright-based router requires either switching the Dockerfile's base
+  image to `apify/actor-node-playwright-chrome` or adding an explicit
+  `npx playwright install --with-deps chromium` build step - both grow the
+  image and the per-run memory floor well past the 512 MB target for the
+  plain Cheerio path. Do this as a deliberate, separate change with a
+  measured before/after image size and memory usage, not as a drive-by
+  addition.
+- Local `apify run` always warns `Proxy external access isn't enabled` and
+  runs with no proxy - that's a Free-plan restriction on running Apify
+  Proxy from outside the platform, not a bug in this Actor. It does not
+  reproduce cloud proxy behavior; anti-blocking changes must be validated
+  with a real cloud run (`apify push` to a beta tag, then `apify actors
+  call ... -b beta`), not just locally.
+- The local git identity for this repo (`git config user.email`) is still
+  the placeholder `tu_email@ejemplo.com` - fix with `git config user.email
+  "<real address>"` before it ends up in a commit that matters.
