@@ -3,20 +3,23 @@
     "actorSpecification": 1,
     "title": "Dataset Schema",
     "fields": {
-        "title": {
-            "title": "Title",
-            "type": "string",
-            "description": "Page title"
-        },
-        "url": {
-            "title": "URL",
-            "type": "string",
-            "description": "Page URL"
-        },
-        "scrapedAt": {
-            "title": "Scraped At",
-            "type": "string",
-            "description": "Timestamp of scraping"
+        "type": "object",
+        "properties": {
+            "title": {
+                "title": "Title",
+                "type": "string",
+                "description": "Page title"
+            },
+            "url": {
+                "title": "URL",
+                "type": "string",
+                "description": "Page URL"
+            },
+            "scrapedAt": {
+                "title": "Scraped At",
+                "type": "string",
+                "description": "Timestamp of scraping"
+            }
         }
     },
     "views": {
