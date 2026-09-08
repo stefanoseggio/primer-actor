@@ -785,11 +785,23 @@ What was actually built, in `src/fingerprint.ts` / `src/state.ts` /
 `src/delta.ts`, is the domain-honest analogue: **per-URL content-change
 detection**, not per-registry listing-lifecycle detection.
 
-- State is keyed by URL (not a listing id), persisted in the default KV
-  store as `{ entries: { [url]: { contentHash, lastSeenAt } }, lastRunAt
-  }` under key `DELTA_STATE`. v1 of this Actor had no state/KV concept at
-  all, so `state.ts`'s `isValidState()` guard has no legacy shape to
-  migrate - it only needs to treat "nothing there yet" as an empty state.
+- State is keyed by URL (not a listing id), persisted as `{ entries: {
+  [url]: { contentHash, lastSeenAt } }, lastRunAt }` under key
+  `DELTA_STATE` in a **named** key-value store (`primer-actor-delta-state`),
+  not `Actor.getValue()`/`setValue()`. Those are shortcuts for the store
+  "associated with the current Actor run" (confirmed against
+  `node_modules/apify/dist/actor.d.ts`) - a fresh, run-scoped store every
+  single run, never shared across separate runs. This was wrong in an
+  earlier draft of this change and only caught by real cloud verification:
+  two separate `apify actors call` runs against the same URLs each got a
+  *different* Key-value store ID and both classified every page `NEW_URL`,
+  proving the `Actor.getValue`/`setValue` version never actually persisted
+  anything across runs. `Actor.openKeyValueStore(name)` with an explicit
+  name opens (or creates) the same store regardless of which run opens it
+  - that's what actually survives across runs. v1 of this Actor had no
+  state/KV concept at all, so `state.ts`'s `isValidState()` guard has no
+  legacy shape to migrate - it only needs to treat "nothing there yet" as
+  an empty state.
 - `contentFingerprintOf()` hashes the SEO-relevant fields only (title,
   metaDescription, canonicalUrl, ogTitle, ogImage, language, h1,
   wordCount) - deliberately excluding statusCode/crawlDepth/scrapedAt,

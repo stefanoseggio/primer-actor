@@ -1,5 +1,26 @@
 # Changelog
 
+## 1.1.1 - 2026-09-08
+
+### Fixed
+
+- `src/state.ts` used `Actor.getValue()`/`Actor.setValue()` for delta
+  state, which the Apify SDK docs confirm are shortcuts for the key-value
+  store "associated with the current Actor run" - i.e. a fresh, run-scoped
+  store every run, never shared across runs. Real cloud verification (two
+  separate runs against the same URLs, each getting a different
+  Key-value store ID and both classifying every page `NEW_URL`) caught
+  this before it was called done. Fixed by opening a **named** store
+  (`Actor.openKeyValueStore('primer-actor-delta-state')`), which persists
+  across separate runs of this Actor. 1.1.0 was built, tested, merged and
+  briefly deployed to the `latest` build tag with this bug present - local
+  tests never exercised two genuinely separate runs against the SAME
+  persistent store, so they passed despite it. Caught immediately by the
+  cloud-verification step that's part of shipping any change in this repo
+  (two real `apify actors call` runs against the same URLs, both showing
+  `NEW_URL` when the second should have shown `UNCHANGED`) and fixed and
+  redeployed within the same session before this was reported as done.
+
 ## 1.1.0 - 2026-09-08
 
 ### Added
