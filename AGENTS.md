@@ -757,6 +757,91 @@ one) follows the same process instead of re-deriving it.
   the placeholder `tu_email@ejemplo.com` - fix with `git config user.email
   "<real address>"` before it ends up in a commit that matters.
 
+## Delta / change-detection mode (2026-09-08)
+
+This section documents a v1.1 addition made as part of a broader,
+fleet-wide V2 architecture rollout across this developer's ~17 Apify
+actors (government-data-monitoring actors: GrantConnect, HSE, Florida
+tenders, several Argentine provincial procurement sites, Diario Oficial
+Chile, etc.). The fleet-wide pattern is a "dual-floor delta engine":
+classify each item as `NEW_LISTING` / `STATUS_CHANGE` / `UPDATED` /
+`CLOSED` / `UNCHANGED` by diffing a fetched registry against persisted
+state, at $0.003/$0.001 two-tier PPE pricing.
+
+**That pattern was deliberately NOT copied here mechanically.** primer-
+actor's domain is fundamentally different from every one of those other
+actors: it crawls whatever `startUrls` the caller supplies each run, with
+same-hostname link discovery and optional pagination - there is no
+enumerable "registry" of listings to walk and diff against, the way a
+government tenders portal has a list of active tenders. Forcing the
+fleet's exact taxonomy onto this Actor would mean inventing a fictitious
+"listing" concept and a `CLOSED` event this domain cannot honestly
+support (a URL not appearing in one run's crawl says nothing reliable
+about whether it "closed" - it might just not have been linked-to from
+this run's start URLs, or might sit behind a `maxRequestsPerCrawl` cutoff
+this run didn't reach).
+
+What was actually built, in `src/fingerprint.ts` / `src/state.ts` /
+`src/delta.ts`, is the domain-honest analogue: **per-URL content-change
+detection**, not per-registry listing-lifecycle detection.
+
+- State is keyed by URL (not a listing id), persisted in the default KV
+  store as `{ entries: { [url]: { contentHash, lastSeenAt } }, lastRunAt
+  }` under key `DELTA_STATE`. v1 of this Actor had no state/KV concept at
+  all, so `state.ts`'s `isValidState()` guard has no legacy shape to
+  migrate - it only needs to treat "nothing there yet" as an empty state.
+- `contentFingerprintOf()` hashes the SEO-relevant fields only (title,
+  metaDescription, canonicalUrl, ogTitle, ogImage, language, h1,
+  wordCount) - deliberately excluding statusCode/crawlDepth/scrapedAt,
+  none of which describe page *content*.
+- `classifyPage()` is a pure function: no prior entry -> `NEW_URL`;
+  fingerprint differs -> `CONTENT_CHANGED`; fingerprint matches ->
+  `UNCHANGED`. No `STATUS_CHANGE`, no `CLOSED` - see above for why
+  neither is defensible in this domain.
+- The router (`src/routes.ts`) is a shared Crawlee singleton with no
+  closure access to `run()`'s own locals, so delta state lives at module
+  scope, wired via an exported `configureDelta(state, onlyChanged)`
+  called from `main.ts` before `crawler.run()` - the same pattern this
+  developer's `pba-tenders-monitor` (also Crawlee-based) uses, and safe
+  for the same reason: each Actor run is one fresh Node process, so
+  there's no concurrent-run state leakage risk.
+- New input `onlyChanged` (default `false`, additive/backward compatible):
+  when set, an `UNCHANGED` page is still crawled (its links are still
+  followed - pagination and site coverage are unaffected) but is not
+  pushed to the dataset and not charged. Every URL visited still gets its
+  state entry updated regardless of `onlyChanged`, because next run needs
+  an accurate fingerprint for *every* visited URL to classify correctly,
+  not only the ones that happened to be delivered this run.
+
+**Deliberately not touched by this release, and why:**
+
+- **No new paid event, no price change.** `onlyChanged` changes how many
+  of the existing `result` events get charged (fewer, when content is
+  unchanged) - it does not add a second pricing tier the way the fleet's
+  `result`/`result-summary` split does elsewhere. This Actor already has
+  its own live, independently-set PPE pricing ($0.0005/result +
+  $0.00005/start, see "Monetization" below) on a different scale from the
+  rest of the fleet, and Apify only allows one "significant pricing
+  change" per Actor per month with a 14-day notice period. Bundling a new
+  tier into this change was considered and rejected - it's a separate,
+  deliberate decision for later, not an automatic consequence of adding
+  change detection.
+- **Version 1.1, not 2.0.** Every output field this Actor already
+  produced is untouched; `eventType`/`contentHash`/`previousScrapedAt` are
+  strictly additive fields, and `onlyChanged` defaults to `false` so
+  existing callers/integrations see no behavior change unless they opt
+  in. The fleet's other actors use "2.0" for what were, in each case, a
+  genuine breaking rewrite of a previously stateless parser into a
+  stateful delta engine with a reshaped output envelope - that is not
+  what happened here, so "2.0" would overstate it.
+- **git push / apify push / apify pricing changes** - this change was
+  built on `feature/content-change-detection` and validated locally
+  (build/lint/test green, see the standard change loop above), but is
+  intentionally left unpushed and undeployed pending the explicit
+  go-ahead this repo's own "What requires explicit go-ahead, every time"
+  section already mandates - unrelated to, and not superseded by, the
+  fleet-wide migration this change was part of.
+
 ## Publishing on Apify Store (this repo, project-specific)
 
 Console-only steps. None of this lives in `.actor/actor.json` - checked

@@ -1,8 +1,12 @@
 import { Actor } from 'apify';
 import { createCheerioRouter } from 'crawlee';
 
+import { classifyPage } from './delta.js';
+import { contentFingerprintOf } from './fingerprint.js';
 import { extractMetadata } from './parsers/metadata.js';
 import { findNextPageUrl } from './parsers/pagination.js';
+import type { DeltaState } from './state.js';
+import { createEmptyState } from './state.js';
 
 export const router = createCheerioRouter();
 
@@ -14,6 +18,21 @@ export const router = createCheerioRouter();
 // returns { eventChargeLimitReached: false }.
 const RESULT_EVENT_NAME = 'result';
 
+// The router is a shared singleton with no closure access to run()'s own
+// locals, so cross-run delta state lives here at module scope, set once by
+// main.ts via configureDelta() before crawler.run() starts. Safe because
+// each Actor run is a single, fresh Node process - no concurrent-run state
+// leakage risk. Defaults to an empty state so tests that call the router
+// directly without configureDelta() still get well-defined (all-NEW_URL)
+// behavior instead of a crash.
+let deltaState: DeltaState = createEmptyState();
+let onlyChanged = false;
+
+export function configureDelta(state: DeltaState, onlyChangedInput: boolean): void {
+    deltaState = state;
+    onlyChanged = onlyChangedInput;
+}
+
 router.addDefaultHandler(async ({ $, request, response, crawler, enqueueLinks, pushData, log }) => {
     const userData = request.userData ?? {};
     const crawlDepth = typeof userData.depth === 'number' ? userData.depth : 0;
@@ -23,15 +42,26 @@ router.addDefaultHandler(async ({ $, request, response, crawler, enqueueLinks, p
 
     const pageUrl = request.loadedUrl ?? request.url;
     const metadata = extractMetadata($, pageUrl, crawlDepth, response?.statusCode ?? null);
+    const contentHash = contentFingerprintOf(metadata);
+    const { eventType, previousScrapedAt } = classifyPage(pageUrl, contentHash, deltaState);
 
-    log.info(`Extracted "${metadata.title}"`, { url: pageUrl });
-    await pushData(metadata);
+    // Record this URL's fingerprint regardless of onlyChanged - the point of
+    // tracking it is precisely so the *next* run can classify it correctly,
+    // even if this run chose not to deliver it.
+    deltaState.entries[pageUrl] = { contentHash, lastSeenAt: metadata.scrapedAt };
 
-    const { eventChargeLimitReached } = await Actor.charge({ eventName: RESULT_EVENT_NAME, count: 1 });
-    if (eventChargeLimitReached) {
-        log.info('Charge limit reached for this run - stopping further extraction.');
-        await crawler.autoscaledPool?.abort();
-        return;
+    if (onlyChanged && eventType === 'UNCHANGED') {
+        log.debug(`Unchanged since last scrape, skipping delivery: ${pageUrl}`);
+    } else {
+        log.info(`Extracted "${metadata.title}" [${eventType}]`, { url: pageUrl });
+        await pushData({ ...metadata, eventType, contentHash, previousScrapedAt });
+
+        const { eventChargeLimitReached } = await Actor.charge({ eventName: RESULT_EVENT_NAME, count: 1 });
+        if (eventChargeLimitReached) {
+            log.info('Charge limit reached for this run - stopping further extraction.');
+            await crawler.autoscaledPool?.abort();
+            return;
+        }
     }
 
     // Dynamic pagination: only follows a "next page" link when the caller

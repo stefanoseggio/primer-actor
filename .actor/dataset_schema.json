@@ -16,7 +16,10 @@
             "wordCount": { "title": "Word count", "type": "integer", "description": "Approximate visible body word count" },
             "statusCode": { "title": "Status code", "type": ["integer", "null"], "description": "HTTP status code of the response" },
             "crawlDepth": { "title": "Crawl depth", "type": "integer", "description": "Link-hops from the nearest start URL" },
-            "scrapedAt": { "title": "Scraped at", "type": "string", "description": "ISO timestamp of extraction" }
+            "scrapedAt": { "title": "Scraped at", "type": "string", "description": "ISO timestamp of extraction" },
+            "eventType": { "title": "Event type", "type": "string", "enum": ["NEW_URL", "CONTENT_CHANGED", "UNCHANGED"], "description": "NEW_URL if this exact URL was never scraped before, CONTENT_CHANGED if its metadata differs from the last scrape, UNCHANGED otherwise. No status/closure concept applies - this Actor crawls caller-supplied URLs, not a discoverable listing registry." },
+            "contentHash": { "title": "Content hash", "type": "string", "description": "Fingerprint over the page's extracted content fields, used to detect CONTENT_CHANGED across runs." },
+            "previousScrapedAt": { "title": "Previously scraped at", "type": ["string", "null"], "description": "scrapedAt from the last time this URL was scraped, or null if this is the first time (NEW_URL)." }
         }
     },
     "views": {
@@ -33,6 +36,22 @@
                     { "label": "Status", "format": "text", "field": "statusCode" },
                     { "label": "Words", "format": "number", "field": "wordCount" },
                     { "label": "Scraped At", "format": "date", "field": "scrapedAt" }
+                ]
+            }
+        },
+        "changes": {
+            "title": "Change detection",
+            "transformation": {
+                "fields": ["url", "eventType", "previousScrapedAt", "scrapedAt", "contentHash"]
+            },
+            "display": {
+                "component": "table",
+                "columns": [
+                    { "label": "URL", "format": "link", "field": "url" },
+                    { "label": "Event", "format": "text", "field": "eventType" },
+                    { "label": "Previously scraped at", "format": "date", "field": "previousScrapedAt" },
+                    { "label": "Scraped at", "format": "date", "field": "scrapedAt" },
+                    { "label": "Content hash", "format": "text", "field": "contentHash" }
                 ]
             }
         }

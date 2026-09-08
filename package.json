@@ -1,6 +1,6 @@
 {
   "name": "primer-actor",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "type": "module",
   "description": "CleanMeta Crawler: production-grade CheerioCrawler that extracts clean page metadata (title, meta description, canonical, Open Graph, H1, word count) with pagination and pay-per-event billing.",
   "engines": {

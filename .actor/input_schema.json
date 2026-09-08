@@ -40,6 +40,12 @@
             "description": "Proxies used to fetch pages. Apify Proxy (datacenter) is recommended as the default.",
             "prefill": { "useApifyProxy": true },
             "editor": "proxy"
+        },
+        "onlyChanged": {
+            "title": "Only deliver new or changed pages",
+            "type": "boolean",
+            "description": "When enabled, a page is still crawled (its links are still followed) but is only added to the dataset - and charged - if it's the first time this exact URL has been scraped, or its extracted metadata differs from the last time this Actor scraped it. Pages with unchanged metadata are skipped. Useful for scheduled re-runs where you only want to pay for what's new or different since the last run.",
+            "default": false
         }
     }
 }
