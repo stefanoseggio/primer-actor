@@ -23,6 +23,7 @@ Most scrapers hand you raw HTML and leave the parsing to you. CleanMeta Crawler 
 | `paginationSelector` | string | no | - | CSS selector for a "next page" link, e.g. `a[rel=next]` or `.pagination .next`. When set, the crawler follows it up to `maxPaginationDepth` pages per start URL, on top of normal same-site link discovery. |
 | `maxPaginationDepth` | integer | no | `3` | Max paginated pages to follow per start URL. Ignored when `paginationSelector` is not set. |
 | `proxyConfiguration` | object | no | Apify Proxy (datacenter) | Standard Apify proxy configuration object. |
+| `onlyChanged` | boolean | no | `false` | When `true`, only deliver (and charge for) pages that are new or whose content changed since the last time this Actor scraped that URL. See [Change detection](#change-detection-delta-mode) below. |
 
 ```json
 {
@@ -49,6 +50,9 @@ One dataset item per crawled page:
 | `statusCode` | integer or null | HTTP status code of the response. |
 | `crawlDepth` | integer | Link-hops from the nearest start URL (0 for a start URL itself). |
 | `scrapedAt` | string | ISO timestamp of extraction. |
+| `eventType` | string | `NEW_URL`, `CONTENT_CHANGED` or `UNCHANGED` - see [Change detection](#change-detection-delta-mode). |
+| `contentHash` | string | Content fingerprint used for change detection. |
+| `previousScrapedAt` | string or null | Timestamp of the last scrape of this URL, or `null` if new. |
 
 ```json
 {
@@ -63,11 +67,30 @@ One dataset item per crawled page:
   "wordCount": 1284,
   "statusCode": 200,
   "crawlDepth": 1,
-  "scrapedAt": "2026-09-04T11:04:27.177Z"
+  "scrapedAt": "2026-09-04T11:04:27.177Z",
+  "eventType": "NEW_URL",
+  "contentHash": "3f9a1c2b8e7d4f0a1b2c3d4e5f60718293a4b5c",
+  "previousScrapedAt": null
 }
 ```
 
 A request that permanently fails after retries is recorded instead of silently dropped, as a dataset item with `url`, `error` and `failedAtRetry` fields.
+
+## Change detection (delta mode)
+
+Every scraped page carries three extra fields:
+
+| Field | Type | Description |
+|---|---|---|
+| `eventType` | string | `NEW_URL` (first time this exact URL was scraped), `CONTENT_CHANGED` (title/description/canonical/OG/H1/word count differ from the last scrape), or `UNCHANGED`. |
+| `contentHash` | string | Fingerprint of the page's extracted content, used to detect `CONTENT_CHANGED` on the next run. |
+| `previousScrapedAt` | string or null | `scrapedAt` from the last time this URL was scraped, or `null` for `NEW_URL`. |
+
+State (one fingerprint per URL) persists across runs in the Actor's key-value store, so this works out of the box on a scheduled Actor task - no extra setup.
+
+Set input `onlyChanged: true` to only pay for what's new or different: pages are still crawled and their links still followed (so link discovery and pagination behave exactly the same), but a page classified `UNCHANGED` is not added to the dataset and not charged. This is the cheapest way to re-run an SEO audit or social-preview check on a schedule and only see - and pay for - what actually moved.
+
+There is deliberately no "closed" or "removed" event: this Actor crawls whichever URLs you give it, not a discoverable registry of listings, so there's no reliable way to say a URL has permanently disappeared - only whether the content at a URL is new, changed, or the same as last time.
 
 ## Why not just scrape it yourself
 
