@@ -1,5 +1,18 @@
 import { Actor } from 'apify';
 
+// Deliberately a NAMED key-value store, not Actor.getValue()/setValue().
+// Those are shortcuts for the store "associated with the current Actor
+// run" (confirmed against node_modules/apify/dist/actor.d.ts) - i.e. a
+// fresh, run-scoped store every single call, never shared across separate
+// runs. Cross-run delta state needs a store that outlives one run, which
+// on this platform means opening one by a fixed NAME: Actor.openKeyValueStore()
+// with a name looks up (or creates) the same persistent store every time,
+// regardless of which run opens it. This was caught by real cloud
+// verification, not local testing: two separate `apify actors call` runs
+// against the same URLs both returned a *different* Key-value store ID and
+// both classified every page NEW_URL - proof the previous getValue/setValue
+// version never actually persisted anything across runs.
+const STATE_STORE_NAME = 'primer-actor-delta-state';
 const STATE_KEY = 'DELTA_STATE';
 
 export interface UrlEntry {
@@ -28,10 +41,12 @@ export function createEmptyState(): DeltaState {
 }
 
 export async function loadState(): Promise<DeltaState> {
-    const raw = await Actor.getValue(STATE_KEY);
+    const store = await Actor.openKeyValueStore(STATE_STORE_NAME);
+    const raw = await store.getValue(STATE_KEY);
     return isValidState(raw) ? raw : createEmptyState();
 }
 
 export async function saveState(state: DeltaState): Promise<void> {
-    await Actor.setValue(STATE_KEY, state);
+    const store = await Actor.openKeyValueStore(STATE_STORE_NAME);
+    await store.setValue(STATE_KEY, state);
 }

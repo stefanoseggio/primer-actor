@@ -30,9 +30,10 @@ describe('state persistence', () => {
     });
 
     it('treats a malformed/legacy value as absent rather than throwing', async () => {
-        // v1 of this Actor never wrote to this key, but simulate any
+        // v1 of this Actor never wrote to this store, but simulate any
         // unexpected shape landing there (e.g. manual Console edit).
-        await Actor.setValue('DELTA_STATE', { seenIds: ['a', 'b'] });
+        const store = await Actor.openKeyValueStore('primer-actor-delta-state');
+        await store.setValue('DELTA_STATE', { seenIds: ['a', 'b'] });
         const loaded = await loadState();
         expect(loaded).toEqual(createEmptyState());
     });
