@@ -1,22 +1,25 @@
 {
-    "$schema": "https://apify.com/schemas/v1/actor.ide.json",
-    "actorSpecification": 1,
-    "name": "primer-actor",
-    "title": "CleanMeta Crawler",
-    "description": "Clean, structured page metadata in seconds: title, description, canonical, Open Graph, H1, word count. Built-in retries and pagination. Ready for SEO audits and LLM/RAG pipelines - pay only per result, never per wasted run.",
-    "version": "1.1",
-    "buildTag": "latest",
-    "minMemoryMbytes": 256,
-    "maxMemoryMbytes": 1024,
-    "meta": {
-        "templateId": "ts-crawlee-cheerio",
-        "generatedBy": "Claude Code with Claude Sonnet 5"
-    },
-    "inputSchema": "./input_schema.json",
-    "outputSchema": "./output_schema.json",
-    "storages": {
-        "dataset": "./dataset_schema.json"
-    },
-    "dockerfile": "../Dockerfile",
-    "changelog": "../CHANGELOG.md"
+  "$schema": "https://apify.com/schemas/v1/actor.ide.json",
+  "actorSpecification": 1,
+  "name": "primer-actor",
+  "title": "Page Metadata Extractor - SEO & RAG JSON Feed",
+  "description": "Extract clean, structured metadata from any site: title, meta description, canonical URL, Open Graph tags, H1 and word count. Built-in retries, session rotation and optional pagination keep every crawl resilient. Built for SEO audits and LLM/RAG pipelines - pay only per result, never per wasted run.",
+  "version": "1.1",
+  "buildTag": "latest",
+  "minMemoryMbytes": 256,
+  "maxMemoryMbytes": 1024,
+  "meta": {
+    "templateId": "ts-crawlee-cheerio",
+    "generatedBy": "Claude Code with Claude Sonnet 5"
+  },
+  "inputSchema": "./input_schema.json",
+  "outputSchema": "./output_schema.json",
+  "storages": {
+    "dataset": "./dataset_schema.json"
+  },
+  "dockerfile": "../Dockerfile",
+  "changelog": "../CHANGELOG.md",
+  "categories": [
+    "SEO_TOOLS"
+  ]
 }
