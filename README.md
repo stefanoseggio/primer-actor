@@ -130,6 +130,45 @@ One dataset item per crawled page:
 
 A page that fails after all retries is still recorded, as an item with `url`, `error` and `failedAtRetry` fields instead of being silently dropped.
 
+## Instant Terminal Run (cURL)
+
+Runs synchronously and returns the resulting dataset items directly in the response - no polling needed. Get your token from [console.apify.com/settings/integrations](https://console.apify.com/settings/integrations).
+
+```bash
+curl -X POST "https://api.apify.com/v2/acts/U9fUBHDngX6IyjzzF/run-sync-get-dataset-items?token=<YOUR_API_TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{
+  "startUrls": [
+    {
+      "url": "https://apify.com"
+    }
+  ],
+  "maxRequestsPerCrawl": 20,
+  "onlyChanged": true
+}'
+```
+
+## Sample Extracted Dataset (JSON)
+
+One real record from this Actor's own dataset, matching `.actor/dataset_schema.json`:
+
+```json
+{
+  "url": "https://apify.com/blog",
+  "title": "Apify Blog",
+  "metaDescription": "News, tutorials and updates from Apify.",
+  "canonicalUrl": "https://apify.com/blog",
+  "ogTitle": "Apify Blog",
+  "language": "en",
+  "h1": "Apify Blog",
+  "wordCount": 842,
+  "statusCode": 200,
+  "scrapedAt": "2026-09-11T09:12:03.000Z",
+  "eventType": "NEW_URL",
+  "contentHash": "3f9a1c2b8e7d4f0a1b2c3d4e5f60718293a4b5c"
+}
+```
+
 ## Pricing (Pay-Per-Event)
 
 | Event | Price | Charged when |
