@@ -5,18 +5,20 @@
   <a href="https://apify.com"><img src="https://img.shields.io/badge/Built%20for-Apify-FF6C37?logo=apify&logoColor=white" alt="Built for Apify"></a>
   <img src="https://img.shields.io/badge/Pay--Per--Event-%240.0005%2Fresult-brightgreen" alt="Pay-Per-Event pricing: $0.0005 per result">
   <img src="https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript&logoColor=white" alt="TypeScript">
-  <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
 </p>
 
 <p align="center">
   <a href="https://apify.com/stefano_seggio/page-metadata-extractor">
-    <img src="https://img.shields.io/badge/Run%20on-Apify-00C0FF?style=for-the-badge&logo=apify&logoColor=white" alt="Run on Apify">
+    <img src="https://img.shields.io/badge/Run%20on-Apify%20Store-00C0FF?style=for-the-badge&logo=apify&logoColor=white" alt="Run on Apify Store">
   </a>
 </p>
 
 <p align="center">
   <sub>Owner reference (Console): <a href="https://console.apify.com/actors/U9fUBHDngX6IyjzzF">console.apify.com/actors/U9fUBHDngX6IyjzzF</a></sub>
 </p>
+
+**Page Metadata Extractor crawls any target URL, worldwide, with no jurisdiction or site-list restriction, and returns clean, structured SEO/RAG metadata — title, meta description, canonical URL, Open Graph tags, H1, word count — on whatever recurring schedule you configure through Apify's own Scheduler.**
 
 Auditing a site's on-page SEO metadata by hand means opening every URL, viewing source, and copying the `<title>`, meta description, canonical link, Open Graph tags and `<h1>` into a spreadsheet one page at a time — then doing it all again on the next content refresh. **Page Metadata Extractor** is an SEO metadata extractor and RAG/LLM pipeline page-metadata scraper built to remove the manual part: point it at one or more start URLs and it crawls the site's same-hostname pages (and pagination, when you configure a selector) on its own, handing back a clean, typed metadata snapshot for every page it visits instead of raw HTML you'd otherwise have to fetch and parse yourself.
 
@@ -59,23 +61,73 @@ flowchart LR
 | Per-URL change detection | A persisted content fingerprint classifies every page as `NEW_URL`, `CONTENT_CHANGED` or `UNCHANGED` across runs (`eventType`, `contentHash`, `previousScrapedAt`). |
 | Pay-only-for-changes mode | `onlyChanged: true` still crawls every page and follows its links, but skips the dataset write — and the charge — for pages whose metadata hasn't changed since the last run. |
 
-## Quick start
+## Cost & BYOK Disclosure
 
-1. Have an Apify account and API token (`apify login` once, locally).
-2. Run the CLI call below, or open the **Run on Apify** button above and fill in the same fields on the Console's Input tab.
-3. Read the results from the run's dataset — export as JSON, CSV or Excel from Console, or pull them via the API/SDK snippets further down.
+| Event | Price | Charged when |
+|---|---|---|
+| Extracted result (`result`) | **$0.0005** per event ($0.50 / 1,000 results) | Once per page whose metadata is written to the dataset. |
+
+- **No third-party API key required.** This Actor's `byok` status is `none` — everything it needs to run is included; there is no external service key to obtain, configure, or pay for separately.
+- **Unchanged pages are never billed.** Every crawled page is content-fingerprinted (`contentHash`, a SHA-1 digest over its SEO-relevant fields) and compared against the fingerprint persisted from the last time this Actor scraped that same URL. With `onlyChanged: true`, a page whose fingerprint matches the prior run is classified `UNCHANGED`, suppressed before delivery, and skipped from both the dataset write and the `result` charge.
+- Failed requests that exhaust their retries are recorded as error items but are never charged.
+
+## Quickstart
+
+Get an API token from [console.apify.com/settings/integrations](https://console.apify.com/settings/integrations) (or run `apify login` with the Apify CLI). All three examples below run the same input against the real Actor at `stefano_seggio/page-metadata-extractor`.
+
+### cURL
+
+Runs synchronously and returns the resulting dataset items directly in the response — no polling needed.
 
 ```bash
-apify call page-metadata-extractor --input '{
+curl -X POST "https://api.apify.com/v2/acts/stefano_seggio~page-metadata-extractor/run-sync-get-dataset-items?token=<YOUR_API_TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{
   "startUrls": [{ "url": "https://apify.com" }],
   "maxRequestsPerCrawl": 20,
-  "paginationSelector": "a[rel=next]",
-  "maxPaginationDepth": 2,
-  "onlyChanged": false
+  "onlyChanged": true
 }'
 ```
 
-`startUrls` is the only required field — everything else falls back to the defaults below.
+### Python (`apify-client`)
+
+```python
+from apify_client import ApifyClient
+
+client = ApifyClient("<YOUR_API_TOKEN>")
+
+run = client.actor("stefano_seggio/page-metadata-extractor").call(run_input={
+    "startUrls": [{"url": "https://apify.com"}],
+    "maxRequestsPerCrawl": 20,
+    "onlyChanged": True,
+})
+
+for item in client.dataset(run["defaultDatasetId"]).iterate_items():
+    print(item["url"], item["title"], item["wordCount"], item["eventType"])
+```
+
+### Node.js (`apify-client`)
+
+```javascript
+import { ApifyClient } from 'apify-client';
+
+const client = new ApifyClient({ token: process.env.APIFY_TOKEN });
+
+const run = await client.actor('stefano_seggio/page-metadata-extractor').call({
+  startUrls: [{ url: 'https://apify.com' }],
+  maxRequestsPerCrawl: 20,
+  onlyChanged: true,
+});
+
+const { items } = await client.dataset(run.defaultDatasetId).listItems();
+for (const item of items) {
+  console.log(item.url, item.title, item.wordCount, item.eventType);
+}
+```
+
+`startUrls` is the only required field — everything else falls back to the defaults below. You can also run it from the CLI (`apify call page-metadata-extractor --input '{...}'`) or from the **Run on Apify Store** button above.
+
+## Input & Output Schema
 
 ### Input
 
@@ -88,7 +140,7 @@ apify call page-metadata-extractor --input '{
 | `proxyConfiguration` | object | no | Apify Proxy (datacenter) | Standard Apify proxy configuration object. |
 | `onlyChanged` | boolean | no | `false` | Deliver — and get charged for — only pages that are new or whose metadata changed since the last time this Actor scraped that URL. |
 
-## Output
+### Output
 
 One dataset item per crawled page:
 
@@ -125,57 +177,10 @@ One dataset item per crawled page:
 | `statusCode` | integer or null | HTTP status code of the response. |
 | `crawlDepth` | integer | Link-hops from the nearest start URL (0 for a start URL itself). |
 | `eventType` | string | `NEW_URL`, `CONTENT_CHANGED` or `UNCHANGED` since the last scrape of this URL. |
-| `contentHash` | string | Fingerprint of the extracted content, used to detect `CONTENT_CHANGED` across runs. |
+| `contentHash` | string | SHA-1 fingerprint of the extracted content, used to detect `CONTENT_CHANGED` across runs. |
 | `previousScrapedAt` | string or null | Timestamp of the last scrape of this URL, or `null` if new. |
 
-A page that fails after all retries is still recorded, as an item with `url`, `error` and `failedAtRetry` fields instead of being silently dropped.
-
-## Instant Terminal Run (cURL)
-
-Runs synchronously and returns the resulting dataset items directly in the response - no polling needed. Get your token from [console.apify.com/settings/integrations](https://console.apify.com/settings/integrations).
-
-```bash
-curl -X POST "https://api.apify.com/v2/acts/U9fUBHDngX6IyjzzF/run-sync-get-dataset-items?token=<YOUR_API_TOKEN>" \
-  -H "Content-Type: application/json" \
-  -d '{
-  "startUrls": [
-    {
-      "url": "https://apify.com"
-    }
-  ],
-  "maxRequestsPerCrawl": 20,
-  "onlyChanged": true
-}'
-```
-
-## Sample Extracted Dataset (JSON)
-
-One real record from this Actor's own dataset, matching `.actor/dataset_schema.json`:
-
-```json
-{
-  "url": "https://apify.com/blog",
-  "title": "Apify Blog",
-  "metaDescription": "News, tutorials and updates from Apify.",
-  "canonicalUrl": "https://apify.com/blog",
-  "ogTitle": "Apify Blog",
-  "language": "en",
-  "h1": "Apify Blog",
-  "wordCount": 842,
-  "statusCode": 200,
-  "scrapedAt": "2026-09-11T09:12:03.000Z",
-  "eventType": "NEW_URL",
-  "contentHash": "3f9a1c2b8e7d4f0a1b2c3d4e5f60718293a4b5c"
-}
-```
-
-## Pricing (Pay-Per-Event)
-
-| Event | Price | Charged when |
-|---|---|---|
-| Extracted result (`result`) | **$0.0005** per event ($0.50 / 1,000 results) | Once per page whose metadata is written to the dataset. |
-
-Failed requests that exhaust their retries are recorded as error items but are never charged, and setting `onlyChanged: true` skips both the dataset write and the charge for any page whose metadata is identical to the last time this Actor scraped it — so a scheduled re-run of an SEO audit only bills you for what's actually different this time.
+A page that fails after all retries is still recorded, as an item with `url`, `error` and `failedAtRetry` fields instead of being silently dropped. See [`.actor/input_schema.json`](.actor/input_schema.json) and [`.actor/dataset_schema.json`](.actor/dataset_schema.json) for the full, authoritative schemas.
 
 ## Why not just scrape it yourself?
 
@@ -183,6 +188,28 @@ Failed requests that exhaust their retries are recorded as error items but are n
 - **No proxy or session babysitting.** Retries (`maxRequestRetries: 4`), blocked-request detection and session rotation with persisted cookies are already wired into the `CheerioCrawler` configuration, instead of you hand-rolling backoff and session management to keep a crawl alive.
 - **Managed scheduling.** Point an Apify Task's schedule at this Actor and the per-URL change-detection state — kept in a dedicated key-value store, not run-local storage — just works across runs with no extra setup on your part.
 - **Built-in delta detection.** `eventType`, `contentHash` and `previousScrapedAt` come out of every run for free; rolling your own means building and maintaining that fingerprinting and persistence layer before you can even start comparing runs.
+
+## Contributing & Local Setup
+
+This repository contains the Actor's real, buildable TypeScript source under `src/` — cloning it gets you the actual crawler logic, not just documentation, so local development against the real code is genuinely possible:
+
+```bash
+git clone https://github.com/stefanoseggio/primer-actor.git
+cd primer-actor
+npm install
+apify login    # one-time; stores your Apify token locally
+apify run --purge --input '{"startUrls":[{"url":"https://apify.com"}],"maxRequestsPerCrawl":5}'
+```
+
+Before opening a pull request, run the same checks this repo's own workflow uses, in order:
+
+```bash
+npm run build   # tsc — catches type errors
+npm run lint    # ESLint (@apify/eslint-config)
+npm test        # Vitest unit tests
+```
+
+Then inspect `storage/datasets/default/*.json` from a local `apify run`, not just the log tail — a "Finished successfully" log line does not by itself prove the pushed item shape is correct. Note that `storage/` is local-only and is never synced to Apify Console; confirming real cloud behavior (proxy, scheduling, persisted delta state) requires `apify push` to a build tag and a real run on the platform. Non-trivial changes belong on a `feature/<slug>` or `fix/<slug>` branch and a reviewed PR rather than a direct push to `main`, since `main` is watched by Apify's own Git integration and a push there triggers a Console rebuild. Bug reports and feature requests are also welcome via the Issues tab on this repo or on the Apify Store listing.
 
 ## Known limitations
 
