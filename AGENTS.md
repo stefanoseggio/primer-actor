@@ -1004,11 +1004,23 @@ on the Actor as the ts-crawlee-cheerio template's `{helloWorld: 123}`
 placeholder through the entire build history until fixed the same way as
 everything else in this section.
 
-**Final published state:** live at
-[apify.com/stefano_seggio/primer-actor](https://apify.com/stefano_seggio/primer-actor),
-`isPublic: true`, build `1.0.13` on both `latest` and `beta`,
-`defaultRunOptions.memoryMbytes: 512`, pricing PPE with `result`
-($0.0005, primary event) and `apify-actor-start` ($0.00005), title/
-description/SEO fields as in section 1, `exampleRunInput` matching the
-real input schema. Categories still `[]`, pending Apify's post-publish
-auto-assignment. Icon uploaded by the user directly in Console.
+**Final published state (as of this 2026-09-04 entry):** live at
+`apify.com/stefano_seggio/primer-actor`, `isPublic: true`, build `1.0.13`
+on both `latest` and `beta`, `defaultRunOptions.memoryMbytes: 512`,
+pricing PPE with `result` ($0.0005, primary event) and
+`apify-actor-start` ($0.00005), title/description/SEO fields as in
+section 1, `exampleRunInput` matching the real input schema. Categories
+still `[]`, pending Apify's post-publish auto-assignment. Icon uploaded
+by the user directly in Console.
+
+**Update (link-audit pass, 2026-09-18):** the Actor slug above no longer
+resolves - `apify.com/stefano_seggio/primer-actor` now 404s. The same
+Actor (id `U9fUBHDngX6IyjzzF`, confirmed via `apify api get
+"acts/stefano_seggio~page-metadata-extractor"`) was renamed and moved to
+direct Apify source-file uploads (`sourceType: SOURCE_FILES`) rather than
+staying Git-linked to this repo; it is now live at
+[apify.com/stefano_seggio/page-metadata-extractor](https://apify.com/stefano_seggio/page-metadata-extractor)
+on build `1.1.5`, matching this repo's README. This repo remains the
+Actor's real, still-linked GitHub source history, but is no longer the
+live build source - see README.md's Contributing section before assuming
+a push here redeploys anything.

@@ -21,7 +21,7 @@ async function run(): Promise<void> {
     } = input;
 
     if (startUrls.length === 0) {
-        log.error('No se recibio ninguna startUrl. Agrega al menos una URL para rastrear.');
+        log.error('No startUrls received. Add at least one URL to crawl.');
         return;
     }
 
@@ -54,7 +54,7 @@ async function run(): Promise<void> {
         requestHandler: router,
         failedRequestHandler: async ({ request }, error) => {
             failedCount += 1;
-            log.error(`Descartado tras ${request.retryCount} reintentos: ${request.url}`, {
+            log.error(`Discarded after ${request.retryCount} retries: ${request.url}`, {
                 errorMessage: error.message,
             });
             await Actor.pushData({
@@ -73,7 +73,7 @@ async function run(): Promise<void> {
 
     if (failedCount > 0) {
         log.warning(
-            `Terminado con ${failedCount} request(s) fallidos permanentemente. Ver registros con campo "error" en el dataset.`,
+            `Finished with ${failedCount} permanently failed request(s). See dataset items with an "error" field for details.`,
         );
     }
 }

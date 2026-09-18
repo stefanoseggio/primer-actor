@@ -66,6 +66,7 @@ flowchart LR
 | Event | Price | Charged when |
 |---|---|---|
 | Extracted result (`result`) | **$0.0005** per event ($0.50 / 1,000 results) | Once per page whose metadata is written to the dataset. |
+| Actor start (`apify-actor-start`) | **$0.00005** per event, one-time per run | Once per run, on start (one event per GB of memory, minimum one). |
 
 - **No third-party API key required.** This Actor's `byok` status is `none` — everything it needs to run is included; there is no external service key to obtain, configure, or pay for separately.
 - **Unchanged pages are never billed.** Every crawled page is content-fingerprinted (`contentHash`, a SHA-1 digest over its SEO-relevant fields) and compared against the fingerprint persisted from the last time this Actor scraped that same URL. With `onlyChanged: true`, a page whose fingerprint matches the prior run is classified `UNCHANGED`, suppressed before delivery, and skipped from both the dataset write and the `result` charge.
@@ -176,6 +177,7 @@ One dataset item per crawled page:
 | `wordCount` | integer | Approximate visible body word count. |
 | `statusCode` | integer or null | HTTP status code of the response. |
 | `crawlDepth` | integer | Link-hops from the nearest start URL (0 for a start URL itself). |
+| `scrapedAt` | string | ISO timestamp of when this page was extracted. |
 | `eventType` | string | `NEW_URL`, `CONTENT_CHANGED` or `UNCHANGED` since the last scrape of this URL. |
 | `contentHash` | string | SHA-1 fingerprint of the extracted content, used to detect `CONTENT_CHANGED` across runs. |
 | `previousScrapedAt` | string or null | Timestamp of the last scrape of this URL, or `null` if new. |
@@ -209,7 +211,7 @@ npm run lint    # ESLint (@apify/eslint-config)
 npm test        # Vitest unit tests
 ```
 
-Then inspect `storage/datasets/default/*.json` from a local `apify run`, not just the log tail — a "Finished successfully" log line does not by itself prove the pushed item shape is correct. Note that `storage/` is local-only and is never synced to Apify Console; confirming real cloud behavior (proxy, scheduling, persisted delta state) requires `apify push` to a build tag and a real run on the platform. Non-trivial changes belong on a `feature/<slug>` or `fix/<slug>` branch and a reviewed PR rather than a direct push to `main`, since `main` is watched by Apify's own Git integration and a push there triggers a Console rebuild. Bug reports and feature requests are also welcome via the Issues tab on this repo or on the Apify Store listing.
+Then inspect `storage/datasets/default/*.json` from a local `apify run`, not just the log tail — a "Finished successfully" log line does not by itself prove the pushed item shape is correct. Note that `storage/` is local-only and is never synced to Apify Console; confirming real cloud behavior (proxy, scheduling, persisted delta state) requires `apify push` to a build tag and a real run on the platform. Non-trivial changes belong on a `feature/<slug>` or `fix/<slug>` branch and a reviewed PR rather than a direct push to `main`. Note that the live Actor now builds from direct Apify source-file uploads rather than this repo's `main` branch, so a push here no longer triggers an automatic Console rebuild — this repo remains the Actor's real, canonical source history, but shipping a change to production requires an explicit `apify push` (or a Console source-file update) after it's merged here. Bug reports and feature requests are also welcome via the Issues tab on this repo or on the Apify Store listing.
 
 ## Known limitations
 
