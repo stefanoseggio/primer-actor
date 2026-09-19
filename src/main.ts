@@ -12,7 +12,7 @@ await Actor.exit();
 async function run(): Promise<void> {
     const input = (await Actor.getInput<ActorInput>()) ?? ({} as ActorInput);
     const {
-        startUrls = [{ url: 'https://apify.com' }],
+        startUrls,
         maxRequestsPerCrawl = 100,
         paginationSelector,
         maxPaginationDepth = 3,
@@ -20,8 +20,8 @@ async function run(): Promise<void> {
         onlyChanged = false,
     } = input;
 
-    if (startUrls.length === 0) {
-        log.error('No startUrls received. Add at least one URL to crawl.');
+    if (!startUrls || startUrls.length === 0) {
+        await Actor.fail('startUrls is required - provide at least one URL to crawl.');
         return;
     }
 

@@ -3,6 +3,7 @@
     "title": "Metadata Crawler Configuration",
     "type": "object",
     "schemaVersion": 1,
+    "required": ["startUrls"],
     "properties": {
         "startUrls": {
             "title": "Start URLs",
